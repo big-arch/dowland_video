@@ -15,7 +15,9 @@ permissions:
 
 concurrency:
   group: mediagrab-polling
-  cancel-in-progress: false
+  # Новый запуск по расписанию заменяет предыдущий: окна не дрейфуют,
+  # а зависший экземпляр не блокирует следующий.
+  cancel-in-progress: true
 
 jobs:
   poll:
