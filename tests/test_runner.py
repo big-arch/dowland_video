@@ -140,6 +140,15 @@ async def test_audio_job(tmp_path: Path) -> None:
     assert runner.stats.success == 1
 
 
+async def test_best_video_sent_as_original_file(tmp_path):
+    runner, bot = make_runner(tmp_path, FakeDownloader())
+    await runner.enqueue(FakeMessage(), url="https://youtu.be/test", platform="youtube",
+                         kind="video", quality=0)
+    await wait_idle(runner)
+    assert bot.send_document.await_count == 1
+    assert bot.send_video.await_count == 0
+
+
 async def test_failure_shows_error(tmp_path: Path) -> None:
     runner, bot = make_runner(tmp_path, FakeDownloader(fail="Видео недоступно"))
     message = FakeMessage()

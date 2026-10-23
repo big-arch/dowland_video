@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 
 from .errors import BotError
+from .quality import video_quality_label
 from .utils import clamp_text, human_duration, human_size
 
 PLATFORM_LABELS: dict[str, str] = {
@@ -48,6 +49,8 @@ def help_text(max_upload_mb: int) -> str:
         "3. Выберите «Видео» или «Аудио».\n\n"
         "<b>Ограничения</b>\n"
         f"• Файл до {max_upload_mb} МБ — лимит Telegram Bot API.\n"
+        "• «Лучшее доступное» — максимальное качество исходника, без перекодирования видео.\n"
+        "• Если видео больше лимита, качество автоматически не снижается.\n"
         "• Плейлисты и карусели: скачиваю только первый элемент.\n"
         "• Instagram, TikTok и X часто требуют cookies — положите "
         "<code>cookies/instagram.txt</code> и т. п. (см. README).\n"
@@ -67,7 +70,7 @@ def settings_text(video_height: int, audio_kbps: int, send_as_document: bool) ->
     doc = "да" if send_as_document else "нет"
     return (
         f"{SETTINGS_TITLE}\n\n"
-        f"🎬 Видео: <b>{video_height}p</b>\n"
+        f"🎬 Видео: <b>{video_quality_label(video_height)}</b>\n"
         f"🎵 Аудио: <b>{audio_kbps} kbps</b>\n"
         f"📎 Отправлять видео файлом: <b>{doc}</b>"
     )

@@ -335,7 +335,8 @@ class Runner:
                 await self._send_document(job, document, caption, thumbnail)
             return
 
-        if prefs.send_as_document or result.ext not in {"mp4", "m4v", "mov"}:
+        if (prefs.send_as_document or job.quality == 0 or job.quality >= 1440
+                or result.ext not in {"mp4", "m4v", "mov"}):
             await self._send_document(job, document, caption, thumbnail)
             return
 

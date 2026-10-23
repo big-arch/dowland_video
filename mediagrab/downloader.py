@@ -16,6 +16,7 @@ from yt_dlp.utils import DownloadError as YtDlpError
 
 from . import threads as threads_module
 from .config import Settings
+from .quality import BEST_VIDEO
 from .errors import (
     DownloadCancelled,
     DownloadFailed,
@@ -208,13 +209,19 @@ class Downloader:
         on_progress: ProgressCallback,
         cancel: threading.Event,
     ) -> MediaResult:
-        """Скачивает медиа, перебирая качества вниз, если файл слишком большой."""
+        """Скачивает видео в выбранном качестве; MP3 подгоняет под лимит."""
         workdir = workdir.resolve()
         workdir.mkdir(parents=True, exist_ok=True)
 
         if kind == "audio" and not self.ffmpeg:
             raise DownloadFailed(
                 "Для MP3 нужен ffmpeg. Установите его и перезапустите бота (см. README)."
+            )
+
+        if kind == "video" and quality == BEST_VIDEO and not self.ffmpeg:
+            raise DownloadFailed(
+                "Для лучшего качества нужен ffmpeg: видео и звук могут быть раздельными. "
+                "Установите ffmpeg или выберите конкретное разрешение."
             )
 
         if platform == "threads" and self.settings.threads_enabled:
@@ -235,7 +242,7 @@ class Downloader:
                     raise
                 # падаем в общий yt-dlp-путь ниже
 
-        ladder = self._ladder(kind, quality)
+        ladder = [quality] if kind == "video" else self._ladder(kind, quality)
         last_error: DownloadFailed | None = None
 
         for index, value in enumerate(ladder):
@@ -254,6 +261,8 @@ class Downloader:
                     force_generic=(platform == "threads"),
                 )
             except FileTooLarge as exc:
+                if kind == "video":
+                    raise
                 last_error = exc
                 log.info("Файл больше лимита (%s), пробую ниже", human_size(exc.size))
                 shutil.rmtree(attempt_dir, ignore_errors=True)
@@ -275,14 +284,12 @@ class Downloader:
     # ------------------------------------------------------------- yt-dlp
 
     def _video_format(self, height: int) -> str:
+        # Сначала качество, без предпочтения H.264/MP4 перед более высоким
+        # разрешением в другом кодеке. Ноль означает исходный максимум.
+        bound = "" if height == BEST_VIDEO else f"[height<=?{height}]"
         if self.ffmpeg:
-            return (
-                f"bv*[height<={height}][ext=mp4][vcodec^=avc1]+ba[ext=m4a]/"
-                f"bv*[height<={height}][ext=mp4]+ba[ext=m4a]/"
-                f"bv*[height<={height}]+ba/"
-                f"b[height<={height}][ext=mp4]/b[height<={height}]/b"
-            )
-        return f"b[height<={height}][ext=mp4]/b[height<={height}]/b"
+            return f"bv*{bound}+ba/b{bound}"
+        return f"b{bound}"
 
     def _base_options(
         self,
@@ -390,7 +397,7 @@ class Downloader:
             options["proxy"] = self.settings.proxy
 
         if kind == "video":
-            options["merge_output_format"] = "mp4"
+            options["merge_output_format"] = "mp4/mkv"
         else:
             options["prefer_ffmpeg"] = True
             options["keepvideo"] = True
@@ -473,6 +480,10 @@ class Downloader:
 
         if kind == "video" and path.suffix.lower() not in {".mp4", ".m4v"}:
             path = self._remux_mp4(path)
+
+        # Контейнер после remux тоже должен укладываться в лимит отправки.
+        if path.stat().st_size > max_bytes:
+            raise FileTooLarge(path.stat().st_size, max_bytes)
 
         thumbnail = self._prepare_thumbnail(workdir, path)
         duration = info.get("duration")
@@ -645,6 +656,8 @@ class Downloader:
             max_bytes=max_bytes,
             cancel=cancel,
             on_progress=direct_progress,
+            max_height=quality if kind == "video" else 0,
+            allow_quality_fallback=(kind != "video"),
         )
 
         if kind == "audio":

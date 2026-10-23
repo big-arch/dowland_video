@@ -48,6 +48,17 @@ def test_settings_keyboard_marks_current() -> None:
     assert any("Отправлять файлом" in text for text in texts)
 
 
+def test_best_and_4k_available_in_both_menus():
+    for keyboard, prefix in [(quality_keyboard("tok"), "q:tok:v:"),
+                             (settings_keyboard(UserPrefs()), "st:v:")]:
+        callbacks = _all_callbacks(keyboard)
+        for value in (0, 2160, 1440):
+            assert f"{prefix}{value}" in callbacks
+    label = download_keyboard("tok", UserPrefs(video_height=0)).inline_keyboard[0][0].text
+    assert "Лучшее доступное" in label
+    assert "0p" not in label
+
+
 class TestPendingStore:
     def test_add_and_get(self) -> None:
         store = PendingStore(ttl=60)
