@@ -6,9 +6,11 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .quality import BEST_VIDEO
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-DEFAULT_VIDEO_HEIGHT = 720
+DEFAULT_VIDEO_HEIGHT = BEST_VIDEO
 DEFAULT_AUDIO_KBPS = 192
 
 
@@ -112,7 +114,7 @@ class Settings:
             max_upload_mb=max_upload_mb,
             max_concurrent=_env_int("MAX_CONCURRENT_DOWNLOADS", 2, minimum=1),
             rate_limit_sec=_env_int("RATE_LIMIT_SECONDS", 10, minimum=0),
-            default_video_height=_env_int("DEFAULT_VIDEO_HEIGHT", DEFAULT_VIDEO_HEIGHT, minimum=144),
+            default_video_height=_env_int("DEFAULT_VIDEO_HEIGHT", DEFAULT_VIDEO_HEIGHT, minimum=0),
             default_audio_kbps=_env_int("DEFAULT_AUDIO_KBPS", DEFAULT_AUDIO_KBPS, minimum=64),
             proxy=_env_str("PROXY_URL") or None,
             local_api_url=local_api,

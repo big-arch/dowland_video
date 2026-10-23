@@ -6,15 +6,15 @@ from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from .storage import UserPrefs
+from .quality import VIDEO_OPTIONS, video_quality_label
 
-VIDEO_OPTIONS = (1080, 720, 480, 360)
 AUDIO_OPTIONS = (320, 192, 128)
 
 
 def download_keyboard(token: str, prefs: UserPrefs) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(
-        text=f"🎬 Видео · {prefs.video_height}p",
+        text=f"🎬 Видео · {video_quality_label(prefs.video_height)}",
         callback_data=f"dl:{token}:v:{prefs.video_height}",
     )
     builder.button(
@@ -30,11 +30,11 @@ def download_keyboard(token: str, prefs: UserPrefs) -> InlineKeyboardMarkup:
 def quality_keyboard(token: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for height in VIDEO_OPTIONS:
-        builder.button(text=f"🎬 {height}p", callback_data=f"q:{token}:v:{height}")
+        builder.button(text=f"🎬 {video_quality_label(height)}", callback_data=f"q:{token}:v:{height}")
     for kbps in AUDIO_OPTIONS:
         builder.button(text=f"🎵 {kbps} kbps", callback_data=f"q:{token}:a:{kbps}")
     builder.button(text="← Назад", callback_data=f"back:{token}")
-    builder.adjust(4, 3, 1)
+    builder.adjust(1, 3, 3, 3, 1)
     return builder.as_markup()
 
 
@@ -48,7 +48,7 @@ def settings_keyboard(prefs: UserPrefs) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for height in VIDEO_OPTIONS:
         mark = "✅ " if height == prefs.video_height else ""
-        builder.button(text=f"{mark}{height}p", callback_data=f"st:v:{height}")
+        builder.button(text=f"{mark}{video_quality_label(height)}", callback_data=f"st:v:{height}")
     for kbps in AUDIO_OPTIONS:
         mark = "✅ " if kbps == prefs.audio_kbps else ""
         builder.button(text=f"{mark}{kbps}", callback_data=f"st:a:{kbps}")
@@ -59,5 +59,5 @@ def settings_keyboard(prefs: UserPrefs) -> InlineKeyboardMarkup:
         callback_data=f"st:doc:{doc_next}",
     )
     builder.button(text="✖️ Закрыть", callback_data="st:close")
-    builder.adjust(4, 3, 1, 1)
+    builder.adjust(1, 3, 3, 3, 1, 1)
     return builder.as_markup()

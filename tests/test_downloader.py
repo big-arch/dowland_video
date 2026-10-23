@@ -43,8 +43,8 @@ def test_audio_ladder_descends() -> None:
 def test_video_format_limits_height(tmp_path) -> None:
     downloader = Downloader(make_settings(tmp_path))
     selector = downloader._video_format(720)
-    assert "height<=720" in selector
-    assert "avc1" in selector
+    assert "height<=?720" in selector
+    assert "avc1" not in selector
 
 
 def test_audio_options_use_requested_bitrate(tmp_path) -> None:
@@ -113,3 +113,42 @@ def test_platform_error_includes_actionable_advice(platform):
     message = _friendly_error("Unexpected response", platform)
     assert platform.lower() in message.lower()
     assert "PROXY_URL" in message
+
+
+def test_best_video_prefers_higher_resolution_over_mp4(tmp_path):
+    import yt_dlp
+
+    downloader = Downloader(make_settings(tmp_path))
+    downloader.ffmpeg = "ffmpeg"
+    formats = [
+        {"format_id": "h264-720", "url": "https://example.com/720.mp4",
+         "ext": "mp4", "height": 720, "vcodec": "avc1", "acodec": "none"},
+        {"format_id": "vp9-2160", "url": "https://example.com/2160.webm",
+         "ext": "webm", "height": 2160, "vcodec": "vp9", "acodec": "none"},
+        {"format_id": "audio", "url": "https://example.com/a.m4a",
+         "ext": "m4a", "vcodec": "none", "acodec": "mp4a", "abr": 128},
+    ]
+    for quality, expected in [(0, "vp9-2160"), (2160, "vp9-2160"), (1080, "h264-720")]:
+        with yt_dlp.YoutubeDL({"format": downloader._video_format(quality), "quiet": True}) as ydl:
+            result = ydl.process_ie_result({
+                "id": "test", "title": "test", "formats": formats,
+            }, download=False)
+        assert result["requested_formats"][0]["format_id"] == expected
+
+
+@pytest.mark.parametrize("quality", [0, 2160, 1080])
+def test_oversized_video_never_retries_at_lower_quality(tmp_path, monkeypatch, quality):
+    downloader = Downloader(make_settings(tmp_path))
+    downloader.ffmpeg = "ffmpeg"
+    calls = []
+
+    def oversized(**kwargs):
+        calls.append(kwargs["value"])
+        raise FileTooLarge(60 * 1024 * 1024, 50 * 1024 * 1024)
+
+    monkeypatch.setattr(downloader, "_fetch_ytdlp", oversized)
+    with pytest.raises(FileTooLarge):
+        downloader.fetch(url="https://youtu.be/test", platform="youtube", kind="video",
+                         quality=quality, workdir=tmp_path / "dl",
+                         on_progress=lambda _: None, cancel=threading.Event())
+    assert calls == [quality]

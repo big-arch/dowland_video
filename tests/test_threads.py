@@ -92,3 +92,21 @@ def test_cookie_header_from_netscape_file(tmp_path) -> None:
     assert "csrftoken=xyz" in header
     assert "ds_user_id=42" in header
     assert "nope=1" not in header
+
+
+def test_threads_does_not_reduce_quality_for_size(tmp_path, monkeypatch):
+    from mediagrab.errors import FileTooLarge
+
+    resolver = make_resolver(tmp_path)
+    media = resolver.parse(PAGE)
+    calls = []
+
+    def oversized(url, target, **kwargs):
+        calls.append(url)
+        raise FileTooLarge(100, 50)
+
+    monkeypatch.setattr(resolver, "_download_one", oversized)
+    with pytest.raises(FileTooLarge):
+        resolver.download(media, tmp_path / "clip.mp4", max_bytes=50, cancel=None,
+                          on_progress=lambda *_: None, allow_quality_fallback=False)
+    assert calls == [media.versions[0].url]

@@ -240,11 +240,16 @@ class ThreadsResolver:
         max_bytes: int,
         cancel,
         on_progress: Callable[[int, int], None],
+        max_height: int = 0,
+        allow_quality_fallback: bool = True,
     ) -> tuple[Path, VideoVersion]:
         destination.parent.mkdir(parents=True, exist_ok=True)
         last_error: Exception | None = None
 
-        for index, version in enumerate(media.versions):
+        versions = [v for v in media.versions if not max_height or not v.height or v.height <= max_height]
+        if not versions:
+            raise DownloadFailed("У видео нет версии в выбранном разрешении. Выберите качество выше.")
+        for index, version in enumerate(versions):
             target = destination.with_name(f"{destination.stem}_{index}.mp4")
             try:
                 self._download_one(
@@ -258,6 +263,8 @@ class ThreadsResolver:
             except FileTooLarge as exc:
                 last_error = exc
                 target.unlink(missing_ok=True)
+                if not allow_quality_fallback:
+                    raise
                 continue
 
         if isinstance(last_error, FileTooLarge):

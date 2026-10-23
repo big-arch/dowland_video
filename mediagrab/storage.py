@@ -10,13 +10,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .config import Settings
+from .quality import BEST_VIDEO
 
 log = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
 class UserPrefs:
-    video_height: int = 720
+    video_height: int = BEST_VIDEO
     audio_kbps: int = 192
     send_as_document: bool = False
 
