@@ -186,6 +186,47 @@ MAX_UPLOAD_MB=2000
 Локальный сервер должен работать на той же машине, что и бот
 (или быть доступен по сети), и с тем же токеном.
 
+### Готовый Docker-запуск до 2 ГБ
+
+1. Остановите прежний экземпляр бота. Если он работает в Actions, отключите
+   workflow `MediaGrab bot` и отмените текущий запуск.
+2. В `.env` задайте `BOT_TOKEN`, `TELEGRAM_API_ID`, `TELEGRAM_API_HASH`
+   (два последних получите на [my.telegram.org/apps](https://my.telegram.org/apps))
+   и `MAX_UPLOAD_MB=2000`.
+3. При первом переходе с облачного API вызовите его метод `logOut`.
+   Следующий Python-код запускается из каталога проекта с установленными зависимостями:
+
+   ```python
+   import asyncio
+   from pathlib import Path
+   from aiogram import Bot
+   from mediagrab.config import Settings, load_dotenv
+
+   async def logout():
+       load_dotenv(Path(".env"))
+       async with Bot(Settings.from_env().bot_token) as bot:
+           await bot.log_out()
+
+   asyncio.run(logout())
+   ```
+
+4. Запустите:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.large.yml up -d --build
+   docker compose -f docker-compose.yml -f docker-compose.large.yml logs -f bot
+   ```
+
+Файл `docker-compose.large.yml` поднимает локальный Bot API и подключает к нему
+бота внутри Docker-сети. Порт API не публикуется наружу, данные API сохраняются
+в Docker volume. Используется образ проекта `aiogram/telegram-bot-api`.
+Нужны свободное место для исходных файлов и результатов обработки и достаточная
+скорость сети. Запуск на 2 ГБ требует именно локального Bot API; одна переменная
+`MAX_UPLOAD_MB` не повышает лимит облачного Telegram.
+
+При переходе обратно на облачный API учитывайте ограничение Telegram: после
+успешного `logOut` вход в облако недоступен 10 минут.
+
 ---
 
 ## Docker
@@ -264,7 +305,36 @@ base64 -w0 cookies/youtube.txt
 ```
 
 Создайте секреты `YOUTUBE_COOKIES_B64`, `INSTAGRAM_COOKIES_B64`,
-`TIKTOK_COOKIES_B64` — workflow сам разложит их в `cookies/`.
+`TIKTOK_COOKIES_B64`, `RUTUBE_COOKIES_B64` — workflow сам разложит их в `cookies/`.
+
+### Ошибки Rutube, TikTok и YouTube
+
+- **Rutube:** для видео с доступом по ссылке сохраняйте `?p=...`.
+  Бот сохраняет этот параметр при очистке ссылок и распознаёт мобильные ссылки
+  и `/shorts/`. Cookies при необходимости передаются через `RUTUBE_COOKIES_B64`.
+- **TikTok:** бот сохраняет обязательный домен `www.tiktok.com` для полных ссылок.
+  Зависимости включают `curl-cffi`, который нужен yt-dlp для браузерных запросов.
+- **YouTube:** зависимости включают `yt-dlp-ejs`, а Actions и Docker — Node.js 22.
+  Эти компоненты решают JS-челленджи, но не устраняют блокировку IP или требование
+  входа. Экспортируйте свежие cookies в Netscape-формате по
+  [инструкции yt-dlp](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies)
+  и обновите секрет `YOUTUBE_COOKIES_B64`. Не публикуйте cookies в репозитории.
+
+Если YouTube возвращает `429` / `Sign in to confirm you're not a bot`,
+TikTok — блокировку IP, а Rutube недоступен из региона сервера,
+задайте секрет **`PROXY_URL`** для Actions (или переменную в `.env`),
+либо перенесите бота на компьютер/сервер, откуда видео доступны.
+Прокси применяется к скачиванию медиа. Результат зависит от площадки и адреса сервера.
+Для диагностики окружения: `python -m mediagrab --check`.
+
+### Большие файлы в Actions
+
+Для подключения **уже работающего** локального Bot API задайте секрет
+`TELEGRAM_LOCAL_API_URL` и переменную Actions `MAX_UPLOAD_MB` (например `500`
+или `2000`). API должен быть доступен runner по защищённой сети; внутренний
+Docker-адрес `http://telegram-api:8081` для GitHub runner не подойдёт.
+Без отдельного API остаётся лимит 50 МБ. На своём сервере проще использовать
+Docker-запуск до 2 ГБ из раздела выше.
 
 ### Ограничения GitHub Actions
 

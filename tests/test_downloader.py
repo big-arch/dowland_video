@@ -93,3 +93,23 @@ def test_file_too_large_marker() -> None:
     exc = FileTooLarge(100 * 1024 * 1024, 50 * 1024 * 1024)
     assert str(exc) == "DL_TOO_LARGE:104857600:52428800"
     assert "лимит" in exc.user_message
+
+
+def test_stream_without_content_length_stops_at_limit(tmp_path) -> None:
+    downloader = Downloader(make_settings(tmp_path))
+    options = downloader._base_options(
+        platform="rutube", kind="video", value=720,
+        workdir=tmp_path / "dl", on_progress=lambda _: None,
+        cancel=threading.Event(),
+    )
+    with pytest.raises(FileTooLarge):
+        options["progress_hooks"][0]({
+            "status": "downloading", "downloaded_bytes": 51 * 1024 * 1024,
+        })
+
+
+@pytest.mark.parametrize("platform", ["rutube", "tiktok"])
+def test_platform_error_includes_actionable_advice(platform):
+    message = _friendly_error("Unexpected response", platform)
+    assert platform.lower() in message.lower()
+    assert "PROXY_URL" in message

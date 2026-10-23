@@ -40,6 +40,20 @@ def test_normalize_strips_www_and_keeps_path() -> None:
     )
 
 
+def test_rutube_preserves_private_access_key() -> None:
+    url = normalize_url(
+        "https://rutube.ru/video/c3371d06e8588b1d3a45e22e2d629f6e/"
+        "?utm_source=embed&t=4&p=access-key"
+    )
+    assert url == "https://rutube.ru/video/c3371d06e8588b1d3a45e22e2d629f6e?p=access-key"
+
+
+def test_rutube_mobile_shorts_normalized() -> None:
+    assert normalize_url("https://m.rutube.ru/shorts/abc/?p=key") == (
+        "https://rutube.ru/video/abc?p=key"
+    )
+
+
 def test_normalize_vk_video_ext_keeps_ids() -> None:
     url = normalize_url("https://vk.com/video_ext.php?oid=-123&id=456&hash=abc&hd=2")
     assert "oid=-123" in url
@@ -73,7 +87,14 @@ def test_extract_urls_from_text_with_punctuation() -> None:
     text = "Смотри: https://youtu.be/abc?t=10, и ещё (https://www.tiktok.com/@u/video/1)."
     urls = extract_urls(text)
     assert urls[0] == "https://youtu.be/abc?t=10"
-    assert urls[1] == "https://tiktok.com/@u/video/1"
+    assert urls[1] == "https://www.tiktok.com/@u/video/1"
+
+
+def test_normalized_tiktok_url_matches_extractor():
+    from yt_dlp.extractor.tiktok import TikTokIE
+
+    url = normalize_url("https://tiktok.com/@busterenko_/video/7696535245524471061")
+    assert TikTokIE.suitable(url)
 
 
 def test_extract_bare_domain() -> None:
@@ -120,3 +141,15 @@ def test_drop_pending_updates_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setenv("DROP_PENDING_UPDATES", "true")
     assert Settings.from_env().drop_pending_updates is True
+
+
+@pytest.mark.parametrize("local_api,requested,expected", [
+    ("", "500", 50),
+    ("http://127.0.0.1:8081", "500", 500),
+    ("http://127.0.0.1:8081", "3000", 2000),
+    ("", "20", 20),
+])
+def test_upload_limit_respects_api(monkeypatch, local_api, requested, expected):
+    monkeypatch.setenv("TELEGRAM_LOCAL_API_URL", local_api)
+    monkeypatch.setenv("MAX_UPLOAD_MB", requested)
+    assert Settings.from_env().max_upload_mb == expected

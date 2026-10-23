@@ -24,6 +24,7 @@ PLATFORM_HOSTS: dict[str, tuple[str, ...]] = {
 # какие query-параметры имеет смысл сохранять
 _KEEP_QUERY: dict[str, set[str]] = {
     "youtube": {"v", "t", "start"},
+    "rutube": {"p"},
     "vk": {"oid", "id", "z", "t", "hd"},
 }
 
@@ -98,10 +99,19 @@ def normalize_url(raw: str) -> str | None:
         ]
 
     netloc = host
+    # TikTokIE распознаёт полные ссылки на ролик только на www.tiktok.com.
+    # Короткие vm/vt ссылки оставляем для соответствующего extractor.
+    if platform == "tiktok" and host == "tiktok.com":
+        netloc = "www.tiktok.com"
     if parts.port and parts.port not in (80, 443):
         netloc = f"{host}:{parts.port}"
 
     path = parts.path or "/"
+    # yt-dlp ожидает основной домен Rutube, включая мобильные ссылки.
+    if platform == "rutube":
+        netloc = "rutube.ru"
+        if path.startswith("/shorts/"):
+            path = "/video/" + path[len("/shorts/"):]
     if path != "/" and path.endswith("/"):
         path = path.rstrip("/")
 

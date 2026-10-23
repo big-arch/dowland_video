@@ -1,4 +1,4 @@
 # MediaGrab — зависимости
 # Ставьте свежий yt-dlp: площадки часто меняют API.
 aiogram>=3.15,<4
-yt-dlp>=2025.6.9
+yt-dlp[default,curl-cffi]>=2026.10.21

@@ -1,0 +1,28 @@
+# docker compose -f docker-compose.yml -f docker-compose.large.yml up -d --build
+services:
+  telegram-api:
+    image: aiogram/telegram-bot-api:latest
+    restart: unless-stopped
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:?Укажите TELEGRAM_API_ID в .env}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:?Укажите TELEGRAM_API_HASH в .env}
+      TELEGRAM_LOCAL: "1"
+    volumes:
+      - telegram-api-data:/var/lib/telegram-bot-api
+    # API доступен только внутри Docker-сети.
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 8081"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  bot:
+    environment:
+      TELEGRAM_LOCAL_API_URL: http://telegram-api:8081
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-2000}
+    depends_on:
+      telegram-api:
+        condition: service_healthy
+
+volumes:
+  telegram-api-data:

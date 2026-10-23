@@ -9,6 +9,7 @@ import re
 import shutil
 import sys
 import time
+from importlib.metadata import PackageNotFoundError, version
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -133,6 +134,12 @@ def run_check(settings: Settings) -> int:
     import yt_dlp
 
     downloader = Downloader(settings)
+
+    def dependency_version(name: str) -> str:
+        try:
+            return version(name)
+        except PackageNotFoundError:
+            return "не установлен"
     token_looks_ok = bool(
         re.fullmatch(r"\d{6,12}:[A-Za-z0-9_-]{25,}", settings.bot_token or "")
     )
@@ -145,6 +152,8 @@ def run_check(settings: Settings) -> int:
         line("Python", sys.version.split()[0]),
         line("aiogram", aiogram.__version__),
         line("yt-dlp", yt_dlp.version.__version__),
+        line("YouTube EJS", dependency_version("yt-dlp-ejs")),
+        line("curl-cffi", dependency_version("curl-cffi")),
         line("ffmpeg", downloader.ffmpeg or "не найден", bool(downloader.ffmpeg)),
         line(
             "JS runtime",
@@ -157,6 +166,8 @@ def run_check(settings: Settings) -> int:
             token_looks_ok,
         ),
         line("Лимит файла", f"{settings.max_upload_mb} МБ"),
+        line("Telegram API", "локальный" if settings.local_api_url else "облачный (до 50 МБ)"),
+        line("Прокси", "задан" if settings.proxy else "не задан"),
         line("Слотов", str(settings.max_concurrent)),
         line("Каталог данных", str(settings.data_dir.resolve())),
         line("Каталог cookies", str(settings.cookies_dir.resolve())),
