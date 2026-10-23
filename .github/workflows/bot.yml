@@ -1,0 +1,93 @@
+name: MediaGrab bot
+
+# GitHub Actions не даёт запускать job дольше 6 часов, поэтому бот
+# перезапускается каждые 6 часов. Между окнами возможна пауза 10–30 минут:
+# сообщения, отправленные в это время, Telegram придержит и бот обработает
+# их при следующем старте (DROP_PENDING_UPDATES=false).
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mediagrab-polling
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Node.js 22 (для YouTube)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Зависимости
+        run: pip install -r requirements.txt
+
+      - name: Проверка секрета BOT_TOKEN
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "::error::Добавьте BOT_TOKEN: Settings → Secrets and variables → Actions → New repository secret"
+            exit 1
+          fi
+
+      - name: Cookies из секретов (необязательно)
+        env:
+          YOUTUBE_COOKIES_B64: ${{ secrets.YOUTUBE_COOKIES_B64 }}
+          INSTAGRAM_COOKIES_B64: ${{ secrets.INSTAGRAM_COOKIES_B64 }}
+          TIKTOK_COOKIES_B64: ${{ secrets.TIKTOK_COOKIES_B64 }}
+        run: |
+          mkdir -p cookies
+          if [ -n "$YOUTUBE_COOKIES_B64" ]; then
+            printf '%s' "$YOUTUBE_COOKIES_B64" | base64 -d > cookies/youtube.txt
+          fi
+          if [ -n "$INSTAGRAM_COOKIES_B64" ]; then
+            printf '%s' "$INSTAGRAM_COOKIES_B64" | base64 -d > cookies/instagram.txt
+          fi
+          if [ -n "$TIKTOK_COOKIES_B64" ]; then
+            printf '%s' "$TIKTOK_COOKIES_B64" | base64 -d > cookies/tiktok.txt
+          fi
+
+      - name: Бот (5 ч 45 мин, затем автоперезапуск по расписанию)
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          DROP_PENDING_UPDATES: "false"
+          MAX_UPLOAD_MB: "50"
+          MAX_CONCURRENT_DOWNLOADS: "2"
+          RATE_LIMIT_SECONDS: "10"
+          YTDLP_JS_RUNTIME: node
+          LOG_LEVEL: INFO
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set +e
+          timeout --preserve-status --signal=TERM --kill-after=120s 20700 python -m mediagrab
+          code=$?
+          if [ "$code" -eq 0 ] || [ "$code" -eq 124 ] || [ "$code" -eq 143 ] || [ "$code" -eq 137 ]; then
+            echo "Окно работы закончилось — следующий запуск по расписанию."
+            exit 0
+          fi
+          exit "$code"

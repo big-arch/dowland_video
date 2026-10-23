@@ -1,0 +1,17 @@
+[project]
+name = "mediagrab"
+version = "1.0.0"
+description = "Telegram-бот для скачивания видео и музыки с YouTube, Instagram, TikTok, Threads, X, Rutube и VK Video"
+requires-python = ">=3.10"
+dependencies = [
+    "aiogram>=3.15,<4",
+    "yt-dlp>=2025.6.9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-q"
+markers = [
+    "integration: полный путь yt-dlp, нужен ffmpeg и локальный HTTP-сервер",
+]

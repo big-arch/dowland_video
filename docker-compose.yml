@@ -1,0 +1,12 @@
+services:
+  bot:
+    build: .
+    container_name: mediagrab
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./cookies:/app/cookies
+      - ./downloads:/app/downloads
+    stop_grace_period: 30s

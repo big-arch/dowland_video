@@ -1,0 +1,13 @@
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.uvcache
+.tmp
+data
+cookies
+downloads
+tests
+*.log
+.env
