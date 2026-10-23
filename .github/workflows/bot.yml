@@ -46,7 +46,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Зависимости
-        run: pip install -r requirements.txt
+        run: pip install --upgrade -r requirements.txt
 
       - name: Проверка секрета BOT_TOKEN
         env:
@@ -62,6 +62,7 @@ jobs:
           YOUTUBE_COOKIES_B64: ${{ secrets.YOUTUBE_COOKIES_B64 }}
           INSTAGRAM_COOKIES_B64: ${{ secrets.INSTAGRAM_COOKIES_B64 }}
           TIKTOK_COOKIES_B64: ${{ secrets.TIKTOK_COOKIES_B64 }}
+          RUTUBE_COOKIES_B64: ${{ secrets.RUTUBE_COOKIES_B64 }}
         run: |
           mkdir -p cookies
           if [ -n "$YOUTUBE_COOKIES_B64" ]; then
@@ -73,12 +74,19 @@ jobs:
           if [ -n "$TIKTOK_COOKIES_B64" ]; then
             printf '%s' "$TIKTOK_COOKIES_B64" | base64 -d > cookies/tiktok.txt
           fi
+          if [ -n "$RUTUBE_COOKIES_B64" ]; then
+            printf '%s' "$RUTUBE_COOKIES_B64" | base64 -d > cookies/rutube.txt
+          fi
+          chmod 600 cookies/*.txt 2>/dev/null || true
 
       - name: Бот (5 ч 45 мин, затем автоперезапуск по расписанию)
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           DROP_PENDING_UPDATES: "false"
-          MAX_UPLOAD_MB: "50"
+          # По умолчанию 50 МБ; с отдельным локальным Bot API — до 2000 МБ.
+          TELEGRAM_LOCAL_API_URL: ${{ secrets.TELEGRAM_LOCAL_API_URL }}
+          MAX_UPLOAD_MB: ${{ vars.MAX_UPLOAD_MB }}
+          PROXY_URL: ${{ secrets.PROXY_URL }}
           MAX_CONCURRENT_DOWNLOADS: "2"
           RATE_LIMIT_SECONDS: "10"
           YTDLP_JS_RUNTIME: node

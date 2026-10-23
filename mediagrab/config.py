@@ -101,12 +101,15 @@ class Settings:
         local_api = _env_str("TELEGRAM_LOCAL_API_URL") or None
         default_limit = 2000 if local_api else 50
 
+        max_upload_mb = _env_int("MAX_UPLOAD_MB", default_limit, minimum=1)
+        max_upload_mb = min(max_upload_mb, default_limit)
+
         return cls(
             bot_token=_env_str("BOT_TOKEN") or _env_str("TELEGRAM_BOT_TOKEN"),
             download_dir=Path(_env_str("DOWNLOAD_DIR", "downloads")).expanduser(),
             data_dir=Path(_env_str("DATA_DIR", "data")).expanduser(),
             cookies_dir=Path(_env_str("COOKIES_DIR", "cookies")).expanduser(),
-            max_upload_mb=_env_int("MAX_UPLOAD_MB", default_limit, minimum=1),
+            max_upload_mb=max_upload_mb,
             max_concurrent=_env_int("MAX_CONCURRENT_DOWNLOADS", 2, minimum=1),
             rate_limit_sec=_env_int("RATE_LIMIT_SECONDS", 10, minimum=0),
             default_video_height=_env_int("DEFAULT_VIDEO_HEIGHT", DEFAULT_VIDEO_HEIGHT, minimum=144),

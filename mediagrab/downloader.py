@@ -85,8 +85,9 @@ def _friendly_error(text: str, platform: str) -> str:
     rules: list[tuple[str, str]] = [
         (
             r"sign in to confirm|confirm you.?re not a bot|not a bot",
-            "YouTube просит подтвердить, что вы не робот. Добавьте cookies "
-            "(cookies/youtube.txt) или попробуйте позже.",
+            "YouTube отклонил запрос с IP сервера. Администратору: обновите cookies "
+            "(YOUTUBE_COOKIES_B64 или cookies/youtube.txt). Если ошибка остаётся, "
+            "настройте PROXY_URL или перенесите бота с GitHub Actions на другой сервер.",
         ),
         (
             r"login required|login_required|checkpoint|rate.?limit|"
@@ -133,8 +134,20 @@ def _friendly_error(text: str, platform: str) -> str:
     for pattern, message in rules:
         if re.search(pattern, lowered):
             return message
-    return "Не удалось скачать медиа. Ссылка может быть недоступна или площадка "
-    "изменила правила."
+    if platform == "tiktok":
+        return (
+            "TikTok не отдал видео. Откройте ссылку в браузере и проверьте доступность. "
+            "Администратору: обновите yt-dlp с curl-cffi, добавьте TIKTOK_COOKIES_B64 "
+            "или cookies/tiktok.txt; при блокировке IP настройте PROXY_URL."
+        )
+    if platform == "rutube":
+        return (
+            "Rutube не отдал видео. Проверьте доступность ролика из региона сервера "
+            "и сохраните параметр ?p= в ссылке с доступом по ссылке. "
+            "Администратору: при блокировке IP настройте PROXY_URL; "
+            "для роликов с входом добавьте cookies/rutube.txt."
+        )
+    return "Не удалось скачать медиа. Ссылка может быть недоступна или площадка изменила правила."
 
 
 class Downloader:
@@ -302,8 +315,8 @@ class Downloader:
                 estimate = self._estimate_size(info)
                 if estimate and estimate > source_limit:
                     raise FileTooLarge(estimate, max_bytes)
-                if total and total > source_limit:
-                    raise FileTooLarge(total, max_bytes)
+                if max(total, downloaded) > source_limit:
+                    raise FileTooLarge(max(total, downloaded), max_bytes)
                 on_progress(
                     Progress(
                         stage="downloading",
@@ -340,7 +353,7 @@ class Downloader:
             "noplaylist": True,
             "playlist_items": "1",
             "quiet": True,
-            "no_warnings": True,
+            "no_warnings": False,
             "noprogress": True,
             "no_color": True,
             "nocheckcertificate": False,
@@ -429,6 +442,8 @@ class Downloader:
             options["force_generic_extractor"] = True
         if platform == "threads":
             options.setdefault("http_headers", {})["Referer"] = "https://www.threads.com/"
+        elif platform == "rutube":
+            options.setdefault("http_headers", {})["Referer"] = "https://rutube.ru/"
 
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
